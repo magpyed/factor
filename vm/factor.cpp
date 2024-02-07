@@ -160,8 +160,14 @@ void factor_vm::start_standalone_factor(int argc, vm_char** argv) {
 
   if (p.fep)
     factorbug();
-
+  for (int i = 0; i < argc; i++) {
+    printf("ARGUMENT %d: %s\n", i, argv[i]);
+  }
+  std::cout << "[[ START ]] c_to_factor_toplevel" << std::endl;
+  std::cout << "OBJ_STARTUP_QUOT is " << OBJ_STARTUP_QUOT << std::endl;
+  std::cout << "special_objects[OBJ_STARTUP_QUOT] is " << special_objects[OBJ_STARTUP_QUOT] << std::endl;
   c_to_factor_toplevel(special_objects[OBJ_STARTUP_QUOT]);
+  std::cout << "[[ END ]] c_to_factor_toplevel" << std::endl;
 }
 
 factor_vm* new_factor_vm() {

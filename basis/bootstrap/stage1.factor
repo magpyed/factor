@@ -57,3 +57,7 @@ load-help? off
 ] [ ] make
 OBJ-STARTUP-QUOT
 bootstrap.image.private:special-objects get set-at
+
+[ ]
+OBJ-STARTUP-QUOT
+bootstrap.image.private:special-objects get set-at

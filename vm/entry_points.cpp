@@ -14,7 +14,9 @@ void factor_vm::c_to_factor(cell quot) {
     CODE_TO_FUNCTION_POINTER_CALLBACK(this, func);
     c_to_factor_func = (c_to_factor_func_type) func;
   }
+  std::cout << "[[ START ]] c_to_factor_func " << quot << std::endl;
   c_to_factor_func(quot);
+  std::cout << "[[ END ]] c_to_factor_func" << std::endl;
 }
 
 void factor_vm::unwind_native_frames(cell quot, cell to) {

@@ -101,6 +101,7 @@ big-endian off
     NOP NOP f rc-absolute-cell ; inline
 
 [
+    0x0118 BRK 
     ! ! pic-tail-reg 5 [RIP+] LEA
     ! why do we store the address after JMP in EBX, where is it
     ! picked up?
@@ -122,7 +123,7 @@ big-endian off
 ! 0 Br rc-relative-arm64-branch rel-word
 
 
-[
+[   0x0119 BRK 
     ! ! 0 CALL f rc-relative rel-word-pic
     ! push-link-reg
     ! 0 BL f rc-relative-arm64-branch rel-word-pic
@@ -135,6 +136,7 @@ big-endian off
 
 
 : jit-call ( name -- )
+    ! 0x120 BRK
     ! RAX 0 MOV f rc-absolute-cell rel-dlsym
     ! RAX CALL ;
     absolute-call rel-dlsym ;
@@ -144,6 +146,7 @@ big-endian off
 ! return-reg BL;
 
 :: jit-call-1arg ( arg1s name -- )
+    ! 0x121 BRK
     ! arg1 arg1s MOVr
     ! name jit-call ;
     arg1s arg1 MOVr
@@ -155,6 +158,7 @@ big-endian off
 
 
 :: jit-call-2arg ( arg1s arg2s name -- )
+    0x0122 BRK 
     ! arg1 arg1s MOV
     ! arg2 arg2s MOV
     ! name jit-call ;
@@ -168,16 +172,20 @@ big-endian off
 ! name jit-call ;
 
 
-: jit-load-vm ( -- ) ;
+
+: jit-load-vm ( -- ) 
+        0x0123 BRK ;
 
 ! ! Factor 2024 Clinic Code:
 ! 0 0 vm-reg MOVZ 0 rc-absolute-arm64-movz rel-vm
 
 : jit-load-context ( -- )
+    0x0124 BRK 
     ! ctx-reg vm-reg vm-context-offset [+] MOV ;
     vm-context-offset vm-reg ctx-reg LDRuoff ;
 
 : jit-save-context ( -- )
+    0x0125 BRK
     jit-load-context
     ! The reason for -8 I think is because we are anticipating a CALL
     ! instruction. After the call instruction, the contexts frame_top
@@ -194,6 +202,7 @@ big-endian off
 
 ! ctx-reg must already have been loaded
 : jit-restore-context ( -- )
+    0x0126 BRK 
     ! ds-reg ctx-reg context-datastack-offset [+] MOV
     ! rs-reg ctx-reg context-retainstack-offset [+] MOV ;
     context-datastack-offset ctx-reg ds-reg LDRuoff
@@ -204,7 +213,7 @@ big-endian off
 ! context-retainstack-top-offset ctx-reg rs-reg LDRuoff
 
 
-[
+[    0x0127 BRK 
     ! ! ctx-reg is preserved across the call because it is non-volatile
     ! ! in the C ABI
     jit-save-context
@@ -228,11 +237,13 @@ big-endian off
 
 
 : jit-jump-quot ( -- )
+    0x0128 BRK 
     ! arg1 quot-entry-point-offset [+] JMP ;
     quot-entry-point-offset arg1 temp0 LDUR
     temp0 BR ;
 
 : jit-call-quot ( -- )
+    ! 0x129 BRK
     ! arg1 quot-entry-point-offset [+] CALL ;
     push-link-reg
     quot-entry-point-offset arg1 temp0 LDUR
@@ -240,6 +251,7 @@ big-endian off
     pop-link-reg ;
 
 [
+    0x0130 BRK 
     ! temp2 0 MOV f rc-absolute-cell rel-literal
     ! temp1 temp2 CMP
     3 words temp2 LDRl
@@ -255,12 +267,14 @@ big-endian off
 
 ! Inline cache miss entry points
 : jit-load-return-address ( -- )
+    0x0131 BRK 
     ! RBX RSP stack-frame-size bootstrap-cell - [+] MOV ;
     stack-frame-size bootstrap-cell - stack-reg arg1 LDRuoff ;
 
 ! These are always in tail position with an existing stack
 ! frame, and the stack. The frame setup takes this into account.
 : jit-inline-cache-miss ( -- )
+    0x0132 BRK 
     jit-save-context
     ! arg1 RBX MOV
     ! arg2 vm-reg MOV
@@ -293,6 +307,7 @@ big-endian off
 
 ! Contexts
 : jit-switch-context ( reg -- )
+    0x0133 BRK 
     ! ! Push a bogus return address so the GC can track this frame back
     ! ! to the owner
     ! 0 CALL
@@ -315,6 +330,7 @@ big-endian off
     ctx-reg jit-update-tib ;
 
 : jit-pop-context-and-param ( -- )
+    0x0134 BRK 
     ! arg1 ds-reg [] MOV
     ! arg1 arg1 alien-offset [+] MOV
     ! arg2 ds-reg -8 [+] MOV
@@ -325,11 +341,13 @@ big-endian off
     pop-arg2 ;
 
 : jit-push-param ( -- )
+    0x0135 BRK 
     ! ds-reg 8 ADD
     ! ds-reg [] arg2 MOV ;
     push-arg2 ;
 
 : jit-set-context ( -- )
+    0x0136 BRK 
     jit-pop-context-and-param
     jit-save-context
     arg1 jit-switch-context
@@ -338,12 +356,14 @@ big-endian off
     jit-push-param ;
 
 : jit-pop-quot-and-param ( -- )
+    0x0137 BRK 
     ! arg1 ds-reg [] MOV
     ! arg2 ds-reg -8 [+] MOV
     ! ds-reg 16 SUB ;
     pop-arg1 pop-arg2 ;
 
 : jit-start-context ( -- )
+    0x0138 BRK 
     ! Create the new context in return-reg. Have to save context
     ! twice, first before calling new_context() which may GC,
     ! and again after popping the two parameters from the stack.
@@ -368,6 +388,7 @@ big-endian off
 
 
 : jit-delete-current-context ( -- )
+    0x0139 BRK 
     vm-reg "delete_context" jit-call-1arg ;
 
 ! ! Factor 2024 Clinic Code:
@@ -376,6 +397,7 @@ big-endian off
 ! Resets the active context and instead the passed in quotation
 ! becomes the new code that it executes.
 : jit-start-context-and-delete ( -- )
+    0x0140 BRK 
     ! Updates the context to match the values in the data and retain
     ! stack registers. reset_context can GC.
     jit-save-context
@@ -403,7 +425,8 @@ big-endian off
 ! pop-arg1
 ! jit-jump-quot ;
 
-[
+[   
+    ! 0x141 BRK
     ! 0 [RIP+] EAX MOV rc-relative rel-safepoint
     3 words temp0 LDRl
     0 temp0 W0 STRuoff
@@ -417,17 +440,17 @@ big-endian off
 
 ! C to Factor entry point
 [
-    0xabcd BRK
+    0x200 BRK 
     ! ! Optimizing compiler's side of callback accesses
     ! ! arguments that are on the stack via the frame pointer.
     ! ! On x86-32 fastcall, and x86-64, some arguments are passed
     ! ! in registers, and so the only registers that are safe for
     ! ! use here are frame-reg, nv-reg and vm-reg.
-    ! frame-reg PUSH
-    ! frame-reg stack-reg MOV
+    ! ! frame-reg PUSH
+    ! ! frame-reg stack-reg MOV
 
     ! ! Save all non-volatile registers
-    ! nv-regs [ PUSH ] each
+    ! ! nv-regs [ PUSH ] each
     -16 SP X19 X18 STPpre
     -16 SP X21 X20 STPpre
     -16 SP X23 X22 STPpre
@@ -437,72 +460,98 @@ big-endian off
     -16 SP X30 STRpre
     stack-reg stack-frame-reg MOVsp
 
+    0x201 BRK 
+
     jit-save-tib
 
+    0x202 BRK 
+
     ! ! Load VM into vm-reg
-    ! vm-reg 0 MOV 0 rc-absolute-cell rel-vm
+    ! ! vm-reg 0 MOV 0 rc-absolute-cell rel-vm
     2 words vm-reg LDRl
     3 words Br
     NOP NOP 0 rc-absolute-cell rel-vm
 
-    ! ! Save old context
-    ! nv-reg vm-reg vm-context-offset [+] MOV
-    ! nv-reg PUSH
-    vm-context-offset vm-reg ctx-reg LDRuoff
-    8 SP ctx-reg STRuoff
+    0x203 BRK 
 
-    ! ! Switch over to the spare context
-    ! nv-reg vm-reg vm-spare-context-offset [+] MOV
-    ! vm-reg vm-context-offset [+] nv-reg MOV
+    ! ! ! Save old context
+    ! ! nv-reg vm-reg vm-context-offset [+] MOV
+    ! ! nv-reg PUSH
+    ! vm-context-offset vm-reg ctx-reg LDRuoff
+    ! 8 SP ctx-reg STRuoff
+
+    ! ! ! Switch over to the spare context
+    ! ! nv-reg vm-reg vm-spare-context-offset [+] MOV
+    ! ! vm-reg vm-context-offset [+] nv-reg MOV
     vm-spare-context-offset vm-reg ctx-reg LDRuoff
     vm-context-offset vm-reg ctx-reg STRuoff
 
-    ! ! Save C callstack pointer
-    ! nv-reg context-callstack-save-offset [+] stack-reg MOV
+    0x204 BRK 
+
+    ! ! ! Save C callstack pointer
+    ! ! nv-reg context-callstack-save-offset [+] stack-reg MOV
 
     stack-reg temp0 MOVsp
     context-callstack-save-offset ctx-reg temp0 STRuoff
-    ! stack-reg X24 MOVsp
-    ! NOP
+    ! ! stack-reg X24 MOVsp
+    ! ! NOP
 
-    ! ! Load Factor stack pointers
-    ! stack-reg nv-reg context-callstack-bottom-offset [+] MOV
+    0x205 BRK 
+
+    ! ! ! Load Factor stack pointers
+    ! ! stack-reg nv-reg context-callstack-bottom-offset [+] MOV
     context-callstack-bottom-offset ctx-reg temp0 LDRuoff
     temp0 stack-reg MOVsp
+
+    0x206 BRK 
 
     ctx-reg jit-update-tib
     jit-install-seh
 
-    ! rs-reg nv-reg context-retainstack-offset [+] MOV
-    ! ds-reg nv-reg context-datastack-offset [+] MOV
+    0x207 BRK 
+
+    ! ! rs-reg nv-reg context-retainstack-offset [+] MOV
+    ! ! ds-reg nv-reg context-datastack-offset [+] MOV
     context-retainstack-offset ctx-reg rs-reg LDRuoff
     context-datastack-offset ctx-reg ds-reg LDRuoff
 
-    ! ! Call into Factor code
-    ! link-reg 0 MOV f rc-absolute-cell rel-word
-    ! link-reg CALL
+    0x208 BRK 
+
+    ! ! ! Call into Factor code
+    ! ! link-reg 0 MOV f rc-absolute-cell rel-word
+    ! ! link-reg CALL
     3 words temp0 LDRl
     temp0 BLR
     3 words Br
     NOP NOP f rc-absolute-cell rel-word
 
-    ! ! Load C callstack pointer
-    ! nv-reg vm-reg vm-context-offset [+] MOV
-    ! stack-reg nv-reg context-callstack-save-offset [+] MOV
+    0x209 BRK 
+
+    ! ! ! Load C callstack pointer
+    ! ! nv-reg vm-reg vm-context-offset [+] MOV
+    ! ! stack-reg nv-reg context-callstack-save-offset [+] MOV
     vm-context-offset vm-reg ctx-reg LDRuoff
+
+    0x210 BRK
 
     context-callstack-save-offset ctx-reg temp0 LDRuoff
     temp0 stack-reg MOVsp
-    ! X24 stack-reg MOVsp
-    ! NOP
+    ! ! X24 stack-reg MOVsp
+    ! ! NOP
 
-    ! ! Load old context
-    ! nv-reg POP
-    ! vm-reg vm-context-offset [+] nv-reg MOV
+    0x211 BRK
+
+    ! ! ! Load old context
+    ! ! nv-reg POP
+    ! ! vm-reg vm-context-offset [+] nv-reg MOV
     8 SP ctx-reg LDRuoff
     vm-context-offset vm-reg ctx-reg STRuoff
 
+    0x212 BRK
+
     jit-restore-tib
+
+    0x213 BRK
 
     ! ! Restore non-volatile registers
     ! nv-regs <reversed> [ POP ] each
@@ -515,19 +564,25 @@ big-endian off
     16 SP X21 X20 LDPpost
     16 SP X19 X18 LDPpost
 
-    ! ! Callbacks which return structs, or use stdcall/fastcall/thiscall,
-    ! ! need a parameter here.
+    0x214 BRK
 
-    ! ! See the comment for M\ x86.32 stack-cleanup in cpu.x86.32
-    ! 0xffff RET f rc-absolute-2 rel-untagged
+    ! ! ! Callbacks which return structs, or use stdcall/fastcall/thiscall,
+    ! ! ! need a parameter here.
+
+    ! ! ! See the comment for M\ x86.32 stack-cleanup in cpu.x86.32
+    ! ! 0xffff RET f rc-absolute-2 rel-untagged
     4 words temp0 ADR
     2 temp0 temp0 LDRHuoff
     temp0 stack-reg stack-reg ADDr
     f RET
     NOP f rc-absolute-2 rel-untagged
+    f RET
+    0xf000 BRK
 ] CALLBACK-STUB jit-define
 
 [
+    0x0100 BRK
+
     ! ! load literal
     ! temp0 0 MOV f rc-absolute-cell rel-literal
     2 words temp0 LDRl
@@ -557,6 +612,7 @@ big-endian off
 ! It is important that the total is 192/64 and that it matches the
 ! constants in vm/cpu-x86.*.hpp
 : jit-signal-handler-prolog ( -- )
+    0x0101 BRK
     ! ! Return address already on stack -> 8/4 bytes.
 
     ! ! Push all registers. 15 regs/120 bytes on 64bit, 7 regs/28 bytes
@@ -592,6 +648,7 @@ big-endian off
     jit-load-vm ;
 
 : jit-signal-handler-epilog ( -- )
+    0x0102 BRK
     ! stack-reg stack-reg 7 bootstrap-cells [+] LEA
     ! POPF
     ! signal-handler-save-regs reverse [ POP ] each ;
@@ -614,6 +671,7 @@ big-endian off
     16 SP X1 X0 LDPpost ;
 
 [
+    0x0103 BRK
     ! ! load boolean
     ! temp0 ds-reg [] MOV
     ! ! pop boolean
@@ -685,7 +743,7 @@ big-endian off
     r> r>
 ] JIT-2DIP jit-define
 
-[
+[   0x0106 BRK
     >r >r >r
     ! ! 0 CALL f rc-relative rel-word
     ! push-link-reg
@@ -711,7 +769,7 @@ big-endian off
     temp0 BR
 ] \ (execute) define-combinator-primitive
 
-[
+[   0x0107 BRK
     ! temp0 ds-reg [] MOV
     ! ds-reg bootstrap-cell SUB
     pop0
@@ -727,7 +785,8 @@ big-endian off
 
 
 ! https://elixir.bootlin.com/linux/latest/source/arch/arm64/kernel/stacktrace.c#L22
-[
+[   
+    ! 0x108 BRK
     ! ! make room for LR plus magic number of callback, 16byte align
     ! x64 ! stack-reg stack-frame-size bootstrap-cell - SUB
     stack-frame-size stack-reg stack-reg SUBi
@@ -740,7 +799,8 @@ big-endian off
 ! push-link-reg
 
 
-[
+[   
+    ! 0x109 BRK
     ! x64 ! stack-reg stack-frame-size bootstrap-cell - ADD
     pop-link-reg
     stack-frame-size stack-reg stack-reg ADDi
@@ -752,14 +812,17 @@ big-endian off
 ! stack-frame-size stack-reg stack-reg ADDi
 
 
-[ f RET ] JIT-RETURN jit-define
+[  
+   ! 0x110 BRK
+   f RET 
+] JIT-RETURN jit-define
 
 ! ! ! Polymorphic inline caches
 
 ! The PIC stubs are not permitted to touch pic-tail-reg.
 
 ! Load a value from a stack position
-[
+[   0x0111 BRK 
     ! temp1 ds-reg 0x7f [+] MOV f rc-absolute-1 rel-untagged
     4 words temp2 ADR
     3 temp2 temp2 LDRBuoff
@@ -774,12 +837,12 @@ big-endian off
 ! temp2 ds-reg temp1 LDRr
 
 
-[
+[ 0x0112 BRK 
     ! temp1/32 tag-mask get AND
     tag-mask get temp1 temp1 ANDi
 ] PIC-TAG jit-define
 
-[
+[   0x0113 BRK 
     ! temp0 temp1 MOV
     temp1 temp0 MOVr
     ! temp1/32 tag-mask get AND
@@ -807,7 +870,7 @@ big-endian off
 ! ] jit-conditional
 
 
-[
+[  0x0114 BRK 
     ! temp1/32 0x7f CMP f rc-absolute-1 rel-untagged
     4 words temp2 ADR
     3 temp2 temp2 LDRBuoff
@@ -822,7 +885,8 @@ big-endian off
 ! temp2 temp1 CMPr
 
 
-[
+
+[   0x0115 BRK 
     ! ! 0 JE f rc-relative rel-word
     ! 0 EQ B.cond f rc-relative-arm64-bcond rel-word
     5 words NE B.cond
@@ -835,7 +899,7 @@ big-endian off
 
 ! ! ! Megamorphic caches
 
-[
+[   0x0116 BRK 
     ! ! class = ...
     ! temp0 temp1 MOV
     temp1 temp0 MOVr
@@ -893,6 +957,7 @@ big-endian off
 
 ! Comparisons
 : jit-compare ( cond -- )
+    0x0117 BRK 
     ! ! load t
     ! temp3 0 MOV t rc-absolute-cell rel-literal
     2 words temp3 LDRl
@@ -936,6 +1001,7 @@ big-endian off
 
 ! Overflowing fixnum arithmetic
 : jit-overflow ( insn func -- )
+    0x0117 BRK 
     ! ds-reg 8 SUB
     jit-save-context
     ! arg1 ds-reg [] MOV
@@ -1024,7 +1090,6 @@ big-endian off
 
     ! ## Entry points
     { c-to-factor [
-            0x1234 BRK
             arg1 arg2 MOVr
             vm-reg "begin_callback" jit-call-1arg
 
@@ -1148,27 +1213,27 @@ big-endian off
     ! ! Factor 2024 Clinic Code:
     ! ! arg4 ds-reg [] MOV
     ! ! ds-reg bootstrap-cell SUB
-	! pop0
+    ! pop0
     ! jit-load-context
     ! ! arg1 ctx-reg context-callstack-bottom-offset [+] MOV
     ! context-callstack-top-offset ctx-reg arg1 LDRuoff
     ! ! arg2 arg4 callstack-top-offset [+] LEA
-	! callstack-top-offset temp0 arg2 ADDi
+    ! callstack-top-offset temp0 arg2 ADDi
     ! ! arg3 arg4 callstack-length-offset [+] MOV
     ! callstack-length-offset arg4 arg3 LDRuoff ! *
     ! ! arg3 tag-bits get SHR
-	! tag-bits get arg3 arg3 LSRi
+    ! tag-bits get arg3 arg3 LSRi
     ! ! arg1 arg3 SUB
-	! arg3 arg1 arg1 SUBr
+    ! arg3 arg1 arg1 SUBr
     ! ! RSP arg1 MOV
-	! arg1 stack-reg MOVsp
+    ! arg1 stack-reg MOVsp
     ! ! RSP 32 SUB
-	! 32 stack-reg stack-reg SUBi
+    ! 32 stack-reg stack-reg SUBi
     ! "factor_memcpy" jit-call
     ! ! RSP 32 ADD
-	! 32 stack-reg stack-reg ADDi
+    ! 32 stack-reg stack-reg ADDi
     ! ! 0 RET
-	! f RET
+    ! f RET
 
 
     ! ## Fixnums
