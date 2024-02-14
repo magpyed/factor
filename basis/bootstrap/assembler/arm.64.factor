@@ -243,7 +243,7 @@ big-endian off
     temp0 BR ;
 
 : jit-call-quot ( -- )
-    ! 0x129 BRK
+    0x129 BRK
     ! arg1 quot-entry-point-offset [+] CALL ;
     push-link-reg
     quot-entry-point-offset arg1 temp0 LDUR
@@ -440,7 +440,7 @@ big-endian off
 
 ! C to Factor entry point
 [
-    0x200 BRK 
+    ! 0x200 BRK 
     ! ! Optimizing compiler's side of callback accesses
     ! ! arguments that are on the stack via the frame pointer.
     ! ! On x86-32 fastcall, and x86-64, some arguments are passed
@@ -460,11 +460,11 @@ big-endian off
     -16 SP X30 STRpre
     stack-reg stack-frame-reg MOVsp
 
-    0x201 BRK 
+    ! 0x201 BRK 
 
-    jit-save-tib
+    ! jit-save-tib
 
-    0x202 BRK 
+    ! 0x202 BRK 
 
     ! ! Load VM into vm-reg
     ! ! vm-reg 0 MOV 0 rc-absolute-cell rel-vm
@@ -472,12 +472,13 @@ big-endian off
     3 words Br
     NOP NOP 0 rc-absolute-cell rel-vm
 
-    0x203 BRK 
+    ! 0x203 BRK 
 
     ! ! ! Save old context
     ! ! nv-reg vm-reg vm-context-offset [+] MOV
     ! ! nv-reg PUSH
-    ! vm-context-offset vm-reg ctx-reg LDRuoff
+    vm-context-offset vm-reg ctx-reg LDRuoff
+    ! -16 SP ctx-reg STRpre
     ! 8 SP ctx-reg STRuoff
 
     ! ! ! Switch over to the spare context
@@ -486,7 +487,7 @@ big-endian off
     vm-spare-context-offset vm-reg ctx-reg LDRuoff
     vm-context-offset vm-reg ctx-reg STRuoff
 
-    0x204 BRK 
+    ! 0x204 BRK 
 
     ! ! ! Save C callstack pointer
     ! ! nv-reg context-callstack-save-offset [+] stack-reg MOV
@@ -496,43 +497,44 @@ big-endian off
     ! ! stack-reg X24 MOVsp
     ! ! NOP
 
-    0x205 BRK 
+    ! 0x205 BRK 
 
     ! ! ! Load Factor stack pointers
     ! ! stack-reg nv-reg context-callstack-bottom-offset [+] MOV
     context-callstack-bottom-offset ctx-reg temp0 LDRuoff
     temp0 stack-reg MOVsp
 
-    0x206 BRK 
+    ! 0x206 BRK 
 
-    ctx-reg jit-update-tib
-    jit-install-seh
+    ! ctx-reg jit-update-tib
+    ! jit-install-seh
 
-    0x207 BRK 
+    ! 0x207 BRK 
 
     ! ! rs-reg nv-reg context-retainstack-offset [+] MOV
     ! ! ds-reg nv-reg context-datastack-offset [+] MOV
     context-retainstack-offset ctx-reg rs-reg LDRuoff
     context-datastack-offset ctx-reg ds-reg LDRuoff
 
-    0x208 BRK 
+    ! 0x208 BRK 
 
     ! ! ! Call into Factor code
     ! ! link-reg 0 MOV f rc-absolute-cell rel-word
     ! ! link-reg CALL
+
     3 words temp0 LDRl
     temp0 BLR
     3 words Br
     NOP NOP f rc-absolute-cell rel-word
 
-    0x209 BRK 
+    ! 0x209 BRK 
 
     ! ! ! Load C callstack pointer
     ! ! nv-reg vm-reg vm-context-offset [+] MOV
     ! ! stack-reg nv-reg context-callstack-save-offset [+] MOV
     vm-context-offset vm-reg ctx-reg LDRuoff
 
-    0x210 BRK
+    ! 0x210 BRK
 
     context-callstack-save-offset ctx-reg temp0 LDRuoff
     temp0 stack-reg MOVsp
@@ -544,14 +546,17 @@ big-endian off
     ! ! ! Load old context
     ! ! nv-reg POP
     ! ! vm-reg vm-context-offset [+] nv-reg MOV
-    8 SP ctx-reg LDRuoff
+
+    ! These are the two lines where illegal alignment error occurs
+    ! 16 SP ctx-reg LDRpost
+    ! 8 SP ctx-reg LDRuoff
     vm-context-offset vm-reg ctx-reg STRuoff
 
     0x212 BRK
 
-    jit-restore-tib
+    ! jit-restore-tib
 
-    0x213 BRK
+    ! 0x213 BRK
 
     ! ! Restore non-volatile registers
     ! nv-regs <reversed> [ POP ] each
@@ -813,7 +818,7 @@ big-endian off
 
 
 [  
-   ! 0x110 BRK
+!    0x110 BRK
    f RET 
 ] JIT-RETURN jit-define
 
@@ -1090,10 +1095,12 @@ big-endian off
 
     ! ## Entry points
     { c-to-factor [
-            arg1 arg2 MOVr
+            ! 0xdead BRK
+            arg2 arg1 MOVr ! push it on the stack instead?
             vm-reg "begin_callback" jit-call-1arg
-
-            jit-call-quot
+            ! 0xbeef BRK
+            ! arg2 arg1 MOVr ! pop it off the stack instead?
+            ! jit-call-quot
 
             vm-reg "end_callback" jit-call-1arg
     ] }
@@ -1528,6 +1535,7 @@ big-endian off
         f RET
     ] }
     { signal-handler [
+        0x300 BRK
         jit-signal-handler-prolog
         jit-save-context
         ! temp0 vm-reg vm-signal-handler-addr-offset [+] MOV

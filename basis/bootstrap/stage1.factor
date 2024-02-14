@@ -58,6 +58,6 @@ load-help? off
 OBJ-STARTUP-QUOT
 bootstrap.image.private:special-objects get set-at
 
-[ ]
+[ 42 drop ]
 OBJ-STARTUP-QUOT
 bootstrap.image.private:special-objects get set-at
