@@ -464,32 +464,25 @@ big-endian off
 
     ! jit-save-tib
 
-    ! 0x202 BRK 
+    0x202 BRK 
 
-    ! ! Load VM into vm-reg
-    ! ! vm-reg 0 MOV 0 rc-absolute-cell rel-vm
-    2 words vm-reg LDRl ! 2 * 4 X28 LDRl
+    ! Load VM into vm-reg
+    2 words vm-reg LDRl ! ldr x28, #0x8 <- loads next instruction ([pc, 0x8]) into x28?
     3 words Br ! 3 * 4 Br
     NOP NOP 0 rc-absolute-cell rel-vm 
 
     0x203 BRK 
 
-    ! ! ! Save old context
-    ! ! nv-reg vm-reg vm-context-offset [+] MOV
-    ! ! nv-reg PUSH
-    vm-context-offset vm-reg ctx-reg LDRuoff ! something X28 X25 LDR
+    ! Save old context
+    vm-context-offset vm-reg ctx-reg LDRuoff ! some-offset X28 X25 LDR
     -16 SP ctx-reg STRpre ! -16 SP X25 STRpre
     ! 8 SP ctx-reg STRuoff
 
-    0x204 BRK
-
-    ! ! ! Switch over to the spare context
-    ! ! nv-reg vm-reg vm-spare-context-offset [+] MOV
-    ! ! vm-reg vm-context-offset [+] nv-reg MOV
+    ! Switch over to the spare context
     vm-spare-context-offset vm-reg ctx-reg LDRuoff ! some-offset X28 X25 LDR
     vm-context-offset vm-reg ctx-reg STRuoff ! some-offset X28 X25 STR
 
-    ! 0x204 BRK 
+    0x204 BRK 
 
     ! ! ! Save C callstack pointer
     ! ! nv-reg context-callstack-save-offset [+] stack-reg MOV
@@ -499,14 +492,14 @@ big-endian off
     ! ! stack-reg X24 MOVsp
     ! ! NOP
 
-    ! 0x205 BRK 
+    0x205 BRK 
 
     ! ! ! Load Factor stack pointers
     ! ! stack-reg nv-reg context-callstack-bottom-offset [+] MOV
     context-callstack-bottom-offset ctx-reg temp0 LDRuoff ! some-offset X25 X9 LDR
     temp0 stack-reg MOVsp ! X9 SP MOVsp
 
-    ! 0x206 BRK 
+    0x206 BRK 
 
     ! ctx-reg jit-update-tib
     ! jit-install-seh
@@ -529,16 +522,19 @@ big-endian off
     3 words Br ! 3 * 4 Br
     NOP NOP f rc-absolute-cell rel-word
 
-    ! 0x209 BRK 
+    0x209 BRK 
 
     ! ! ! Load C callstack pointer
     ! ! nv-reg vm-reg vm-context-offset [+] MOV
     ! ! stack-reg nv-reg context-callstack-save-offset [+] MOV
+    ! vm-context-offset is 0
     vm-context-offset vm-reg ctx-reg LDRuoff ! some-offset X28 X25
 
     ! 0x210 BRK
 
+    ! context-callback-save-offset is 4 8-byte words (0x20)
     context-callstack-save-offset ctx-reg temp0 LDRuoff ! some-offset X25 X9
+    ! stack value from 0x0000fffff7cb11b0 -> 0x0000fffff7a8cff8 (misaligned)
     temp0 stack-reg MOVsp ! X9 SP MOVsp
     ! ! X24 stack-reg MOVsp
     ! ! NOP
