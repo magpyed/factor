@@ -458,7 +458,7 @@ big-endian off
     -16 SP X27 X26 STPpre
     -16 SP X29 X28 STPpre
     -16 SP X30 STRpre
-    stack-reg stack-frame-reg MOVsp
+    stack-reg stack-frame-reg MOVsp ! SP X29 MOVsp
 
     ! 0x201 BRK 
 
@@ -468,32 +468,34 @@ big-endian off
 
     ! ! Load VM into vm-reg
     ! ! vm-reg 0 MOV 0 rc-absolute-cell rel-vm
-    2 words vm-reg LDRl
-    3 words Br
-    NOP NOP 0 rc-absolute-cell rel-vm
+    2 words vm-reg LDRl ! 2 * 4 X28 LDRl
+    3 words Br ! 3 * 4 Br
+    NOP NOP 0 rc-absolute-cell rel-vm 
 
-    ! 0x203 BRK 
+    0x203 BRK 
 
     ! ! ! Save old context
     ! ! nv-reg vm-reg vm-context-offset [+] MOV
     ! ! nv-reg PUSH
-    vm-context-offset vm-reg ctx-reg LDRuoff
-    ! -16 SP ctx-reg STRpre
+    vm-context-offset vm-reg ctx-reg LDRuoff ! something X28 X25 LDR
+    -16 SP ctx-reg STRpre ! -16 SP X25 STRpre
     ! 8 SP ctx-reg STRuoff
+
+    0x204 BRK
 
     ! ! ! Switch over to the spare context
     ! ! nv-reg vm-reg vm-spare-context-offset [+] MOV
     ! ! vm-reg vm-context-offset [+] nv-reg MOV
-    vm-spare-context-offset vm-reg ctx-reg LDRuoff
-    vm-context-offset vm-reg ctx-reg STRuoff
+    vm-spare-context-offset vm-reg ctx-reg LDRuoff ! some-offset X28 X25 LDR
+    vm-context-offset vm-reg ctx-reg STRuoff ! some-offset X28 X25 STR
 
     ! 0x204 BRK 
 
     ! ! ! Save C callstack pointer
     ! ! nv-reg context-callstack-save-offset [+] stack-reg MOV
 
-    stack-reg temp0 MOVsp
-    context-callstack-save-offset ctx-reg temp0 STRuoff
+    stack-reg temp0 MOVsp ! SP X9 MOVsp
+    context-callstack-save-offset ctx-reg temp0 STRuoff ! some-offset X25 X9 STR
     ! ! stack-reg X24 MOVsp
     ! ! NOP
 
@@ -501,8 +503,8 @@ big-endian off
 
     ! ! ! Load Factor stack pointers
     ! ! stack-reg nv-reg context-callstack-bottom-offset [+] MOV
-    context-callstack-bottom-offset ctx-reg temp0 LDRuoff
-    temp0 stack-reg MOVsp
+    context-callstack-bottom-offset ctx-reg temp0 LDRuoff ! some-offset X25 X9 LDR
+    temp0 stack-reg MOVsp ! X9 SP MOVsp
 
     ! 0x206 BRK 
 
@@ -513,8 +515,8 @@ big-endian off
 
     ! ! rs-reg nv-reg context-retainstack-offset [+] MOV
     ! ! ds-reg nv-reg context-datastack-offset [+] MOV
-    context-retainstack-offset ctx-reg rs-reg LDRuoff
-    context-datastack-offset ctx-reg ds-reg LDRuoff
+    context-retainstack-offset ctx-reg rs-reg LDRuoff ! X25 X26 LDRuoff
+    context-datastack-offset ctx-reg ds-reg LDRuoff ! X25 X27
 
     ! 0x208 BRK 
 
@@ -522,9 +524,9 @@ big-endian off
     ! ! link-reg 0 MOV f rc-absolute-cell rel-word
     ! ! link-reg CALL
 
-    3 words temp0 LDRl
-    temp0 BLR
-    3 words Br
+    3 words temp0 LDRl ! 3 * 4 X9 LDRl
+    temp0 BLR ! X9 BLR
+    3 words Br ! 3 * 4 Br
     NOP NOP f rc-absolute-cell rel-word
 
     ! 0x209 BRK 
@@ -532,12 +534,12 @@ big-endian off
     ! ! ! Load C callstack pointer
     ! ! nv-reg vm-reg vm-context-offset [+] MOV
     ! ! stack-reg nv-reg context-callstack-save-offset [+] MOV
-    vm-context-offset vm-reg ctx-reg LDRuoff
+    vm-context-offset vm-reg ctx-reg LDRuoff ! some-offset X28 X25
 
     ! 0x210 BRK
 
-    context-callstack-save-offset ctx-reg temp0 LDRuoff
-    temp0 stack-reg MOVsp
+    context-callstack-save-offset ctx-reg temp0 LDRuoff ! some-offset X25 X9
+    temp0 stack-reg MOVsp ! X9 SP MOVsp
     ! ! X24 stack-reg MOVsp
     ! ! NOP
 
@@ -548,9 +550,9 @@ big-endian off
     ! ! vm-reg vm-context-offset [+] nv-reg MOV
 
     ! These are the two lines where illegal alignment error occurs
-    ! 16 SP ctx-reg LDRpost
+    16 SP ctx-reg LDRpost ! 16 SP X25 LDRpost
     ! 8 SP ctx-reg LDRuoff
-    vm-context-offset vm-reg ctx-reg STRuoff
+    vm-context-offset vm-reg ctx-reg STRuoff ! some-offset X28 X25 STR
 
     0x212 BRK
 
@@ -576,13 +578,11 @@ big-endian off
 
     ! ! ! See the comment for M\ x86.32 stack-cleanup in cpu.x86.32
     ! ! 0xffff RET f rc-absolute-2 rel-untagged
-    4 words temp0 ADR
-    2 temp0 temp0 LDRHuoff
-    temp0 stack-reg stack-reg ADDr
+    4 words temp0 ADR ! 4 * 4 x9 ADR
+    2 temp0 temp0 LDRHuoff ! 2 X9 X9 LDRHuoff
+    temp0 stack-reg stack-reg ADDr ! X9 SP SP ADDr
     f RET
     NOP f rc-absolute-2 rel-untagged
-    f RET
-    0xf000 BRK
 ] CALLBACK-STUB jit-define
 
 [
