@@ -21,6 +21,13 @@ big-endian off
 ! X29/FP               frame pointer
 ! X30/LR  non-volatile link register
 
+: context-callstack-top-offset ( -- n ) 0 bootstrap-cells ; inline
+: context-callstack-bottom-offset ( -- n ) 2 bootstrap-cells ; inline
+: context-datastack-offset ( -- n ) 3 bootstrap-cells ; inline
+: context-retainstack-offset ( -- n ) 4 bootstrap-cells ; inline
+: context-callstack-save-offset ( -- n ) 5 bootstrap-cells ; inline
+: context-callstack-seg-offset ( -- n ) 8 bootstrap-cells ; inline
+
 : words ( n -- n ) 4 * ; inline
 : stack-frame-size ( -- n ) 8 bootstrap-cells ; inline
 
@@ -440,7 +447,6 @@ big-endian off
 
 ! C to Factor entry point
 [
-    ! 0x200 BRK 
     ! ! Optimizing compiler's side of callback accesses
     ! ! arguments that are on the stack via the frame pointer.
     ! ! On x86-32 fastcall, and x86-64, some arguments are passed
@@ -449,8 +455,8 @@ big-endian off
     ! ! frame-reg PUSH
     ! ! frame-reg stack-reg MOV
 
-    ! ! Save all non-volatile registers
-    ! ! nv-regs [ PUSH ] each
+    ! Save all non-volatile registers
+    0x200 BRK 
     -16 SP X19 X18 STPpre
     -16 SP X21 X20 STPpre
     -16 SP X23 X22 STPpre
@@ -458,107 +464,73 @@ big-endian off
     -16 SP X27 X26 STPpre
     -16 SP X29 X28 STPpre
     -16 SP X30 STRpre
-    stack-reg stack-frame-reg MOVsp ! SP X29 MOVsp
-
     ! 0x201 BRK 
+    stack-reg stack-frame-reg MOVsp ! SP X29 MOVsp
 
     ! jit-save-tib
 
-    0x202 BRK 
-
     ! Load VM into vm-reg
+    ! 0x202 BRK 
     2 words vm-reg LDRl ! ldr x28, #0x8 <- loads next instruction ([pc, 0x8]) into x28?
     3 words Br ! 3 * 4 Br
     NOP NOP 0 rc-absolute-cell rel-vm 
 
-    0x203 BRK 
-
     ! Save old context
-    vm-context-offset vm-reg ctx-reg LDRuoff ! some-offset X28 X25 LDR
-    -16 SP ctx-reg STRpre ! -16 SP X25 STRpre
+    ! 0x203 BRK 
+    vm-context-offset vm-reg ctx-reg LDRuoff ! ldr x28, #0x8
+    -16 SP ctx-reg STRpre ! str x25, [sp, #-0x10]!
     ! 8 SP ctx-reg STRuoff
 
     ! Switch over to the spare context
-    vm-spare-context-offset vm-reg ctx-reg LDRuoff ! some-offset X28 X25 LDR
-    vm-context-offset vm-reg ctx-reg STRuoff ! some-offset X28 X25 STR
+    vm-spare-context-offset vm-reg ctx-reg LDRuoff ! ldr x25, [x28, #0x8]
+    vm-context-offset vm-reg ctx-reg STRuoff ! str x25, [x28]
 
-    0x204 BRK 
+    ! Save C callstack pointer
+    ! 0x204 BRK 
+    stack-reg temp0 MOVsp ! mov x9, sp
+    context-callstack-save-offset ctx-reg temp0 STRuoff ! str x9, [x25, #0x20]
 
-    ! ! ! Save C callstack pointer
-    ! ! nv-reg context-callstack-save-offset [+] stack-reg MOV
+    ! Load Factor stack pointers
+    ! 0x205 BRK 
+    context-callstack-bottom-offset ctx-reg temp0 LDRuoff ! ldr x9, [x25, #0x8]
+    temp0 stack-reg MOVsp ! mov sp, x9
 
-    stack-reg temp0 MOVsp ! SP X9 MOVsp
-    context-callstack-save-offset ctx-reg temp0 STRuoff ! some-offset X25 X9 STR
-    ! ! stack-reg X24 MOVsp
-    ! ! NOP
-
-    0x205 BRK 
-
-    ! ! ! Load Factor stack pointers
-    ! ! stack-reg nv-reg context-callstack-bottom-offset [+] MOV
-    context-callstack-bottom-offset ctx-reg temp0 LDRuoff ! some-offset X25 X9 LDR
-    temp0 stack-reg MOVsp ! X9 SP MOVsp
-
-    0x206 BRK 
-
+    ! 0x206 BRK 
     ! ctx-reg jit-update-tib
     ! jit-install-seh
 
     ! 0x207 BRK 
+    context-retainstack-offset ctx-reg rs-reg LDRuoff ! ldr x26, [x25, #0x18]
+    context-datastack-offset ctx-reg ds-reg LDRuoff ! ldr x27, [x25, #0x10] 
 
-    ! ! rs-reg nv-reg context-retainstack-offset [+] MOV
-    ! ! ds-reg nv-reg context-datastack-offset [+] MOV
-    context-retainstack-offset ctx-reg rs-reg LDRuoff ! X25 X26 LDRuoff
-    context-datastack-offset ctx-reg ds-reg LDRuoff ! X25 X27
-
-    ! 0x208 BRK 
-
-    ! ! ! Call into Factor code
-    ! ! link-reg 0 MOV f rc-absolute-cell rel-word
-    ! ! link-reg CALL
-
-    3 words temp0 LDRl ! 3 * 4 X9 LDRl
-    temp0 BLR ! X9 BLR
-    3 words Br ! 3 * 4 Br
+    ! Call into Factor code
+    ! 0x208 BRK
+    3 words temp0 LDRl ! ldr x9, #0xc
+    temp0 BLR ! blr x9
+    3 words Br ! b 0xfffff79493a0
     NOP NOP f rc-absolute-cell rel-word
 
-    0x209 BRK 
+    ! Load C callstack pointer
+    ! 0x209 BRK
+    vm-context-offset vm-reg ctx-reg LDRuoff ! ldr x25, [x28]
 
-    ! ! ! Load C callstack pointer
-    ! ! nv-reg vm-reg vm-context-offset [+] MOV
-    ! ! stack-reg nv-reg context-callstack-save-offset [+] MOV
-    ! vm-context-offset is 0
-    vm-context-offset vm-reg ctx-reg LDRuoff ! some-offset X28 X25
-
-    ! 0x210 BRK
-
-    ! context-callback-save-offset is 4 8-byte words (0x20)
-    context-callstack-save-offset ctx-reg temp0 LDRuoff ! some-offset X25 X9
     ! stack value from 0x0000fffff7cb11b0 -> 0x0000fffff7a8cff8 (misaligned)
-    temp0 stack-reg MOVsp ! X9 SP MOVsp
-    ! ! X24 stack-reg MOVsp
-    ! ! NOP
+    ! 0x210 BRK
+    context-callstack-save-offset ctx-reg temp0 LDRuoff ! ldr x9, [x25, #0x20]
+    temp0 stack-reg MOVsp ! mov sp, x9
 
-    0x211 BRK
-
-    ! ! ! Load old context
-    ! ! nv-reg POP
-    ! ! vm-reg vm-context-offset [+] nv-reg MOV
-
-    ! These are the two lines where illegal alignment error occurs
-    16 SP ctx-reg LDRpost ! 16 SP X25 LDRpost
+    ! Load old context
+    ! illegal alignment error (happens with empty boot quote as well?)
+    ! 0x211 BRK
     ! 8 SP ctx-reg LDRuoff
-    vm-context-offset vm-reg ctx-reg STRuoff ! some-offset X28 X25 STR
+    16 SP ctx-reg LDRpost ! ldr x25, [sp], #0x10
+    vm-context-offset vm-reg ctx-reg STRuoff ! str x25, [x28]
 
-    0x212 BRK
-
+    ! 0x212 BRK
     ! jit-restore-tib
 
+    ! Restore non-volatile registers
     ! 0x213 BRK
-
-    ! ! Restore non-volatile registers
-    ! nv-regs <reversed> [ POP ] each
-    ! frame-reg POP
     16 SP X30 LDRpost
     16 SP X29 X28 LDPpost
     16 SP X27 X26 LDPpost
@@ -568,17 +540,7 @@ big-endian off
     16 SP X19 X18 LDPpost
 
     0x214 BRK
-
-    ! ! ! Callbacks which return structs, or use stdcall/fastcall/thiscall,
-    ! ! ! need a parameter here.
-
-    ! ! ! See the comment for M\ x86.32 stack-cleanup in cpu.x86.32
-    ! ! 0xffff RET f rc-absolute-2 rel-untagged
-    4 words temp0 ADR ! 4 * 4 x9 ADR
-    2 temp0 temp0 LDRHuoff ! 2 X9 X9 LDRHuoff
-    temp0 stack-reg stack-reg ADDr ! X9 SP SP ADDr
     f RET
-    NOP f rc-absolute-2 rel-untagged
 ] CALLBACK-STUB jit-define
 
 [
@@ -1091,10 +1053,10 @@ big-endian off
 
     ! ## Entry points
     { c-to-factor [
-            ! 0xdead BRK
             arg2 arg1 MOVr ! push it on the stack instead?
+            0xdead BRK
             vm-reg "begin_callback" jit-call-1arg
-            ! 0xbeef BRK
+            0xbeef BRK
             ! arg2 arg1 MOVr ! pop it off the stack instead?
             ! jit-call-quot
 
@@ -1104,7 +1066,7 @@ big-endian off
         ! ! unwind-native-frames is marked as "special" in
         ! ! vm/quotations.cpp so it does not have a standard prolog
         ! ! Unwind stack frames
-        ! RSP arg2 MOV
+        ! RSP arg2 MOVƒox
         arg2 stack-reg MOVsp
         ! ! Load VM pointer into vm-reg, since we're entering from
         ! ! C code
