@@ -3,7 +3,7 @@
 USING: bootstrap.image.private compiler.codegen.relocation
 compiler.constants cpu.x86.assembler cpu.x86.assembler.operands
 generic.single.private kernel kernel.private layouts math
-math.private namespaces threads.private ;
+math.private namespaces threads.private io ;
 IN: bootstrap.assembler.x86
 
 8 \ cell set
@@ -29,32 +29,39 @@ IN: bootstrap.assembler.x86
 : rex-length ( -- n ) 1 ;
 
 : jit-call ( name -- )
+    "jit-call" print
     RAX 0 MOV f rc-absolute-cell rel-dlsym
     RAX CALL ;
 
 :: jit-call-1arg ( arg1s name -- )
+    "jit-call-1arg" print
     arg1 arg1s MOV
     name jit-call ;
 
 :: jit-call-2arg ( arg1s arg2s name -- )
+    "jit-call-2arg" print
     arg1 arg1s MOV
     arg2 arg2s MOV
     name jit-call ;
 
 [
+    "JIT-WORD-JUMP" print
     pic-tail-reg 5 [RIP+] LEA
     0 JMP f rc-relative rel-word-pic-tail
 ] JIT-WORD-JUMP jit-define
 
 : jit-load-vm ( -- )
+    "jit-load-vm" print
     ! no-op on x86-64. in factor contexts vm-reg always contains the
     ! vm pointer.
     ;
 
 : jit-load-context ( -- )
+    "jit-load-context" print
     ctx-reg vm-reg vm-context-offset [+] MOV ;
 
 : jit-save-context ( -- )
+    "jit-save-context" print
     jit-load-context
     ! The reason for -8 I think is because we are anticipating a CALL
     ! instruction. After the call instruction, the contexts frame_top
@@ -66,10 +73,12 @@ IN: bootstrap.assembler.x86
 
 ! ctx-reg must already have been loaded
 : jit-restore-context ( -- )
+    "jit-restore-context" print
     ds-reg ctx-reg context-datastack-offset [+] MOV
     rs-reg ctx-reg context-retainstack-offset [+] MOV ;
 
 [
+    "JIT-PRIMITIVE" print
     ! ctx-reg is preserved across the call because it is non-volatile
     ! in the C ABI
     jit-save-context
@@ -81,14 +90,19 @@ IN: bootstrap.assembler.x86
 ] JIT-PRIMITIVE jit-define
 
 : jit-jump-quot ( -- )
+    "jit-jump-quot" print
     arg1 quot-entry-point-offset [+] JMP ;
 
-: jit-call-quot ( -- ) arg1 quot-entry-point-offset [+] CALL ;
+: jit-call-quot ( -- ) 
+    "jit-call-quot" print
+    arg1 quot-entry-point-offset [+] CALL ;
 
 : signal-handler-save-regs ( -- regs )
+    "signal-handler-save-regs" print
     { RAX RCX RDX RBX RBP RSI RDI R8 R9 R10 R11 R12 R13 R14 R15 } ;
 
 [
+    "(call)" print
     arg1 ds-reg [] MOV
     ds-reg bootstrap-cell SUB
 ]
@@ -97,6 +111,7 @@ IN: bootstrap.assembler.x86
 \ (call) define-combinator-primitive
 
 [
+    "lazy-jit-compile" print
     jit-save-context
     arg2 vm-reg MOV
     "lazy_jit_compile" jit-call
@@ -107,17 +122,20 @@ IN: bootstrap.assembler.x86
 \ lazy-jit-compile define-combinator-primitive
 
 [
+    "PIC-CHECK-TUPLE" print
     temp2 0 MOV f rc-absolute-cell rel-literal
     temp1 temp2 CMP
 ] PIC-CHECK-TUPLE jit-define
 
 ! Inline cache miss entry points
 : jit-load-return-address ( -- )
+    "jit-load-return-address" print
     RBX RSP stack-frame-size bootstrap-cell - [+] MOV ;
 
 ! These are always in tail position with an existing stack
 ! frame, and the stack. The frame setup takes this into account.
 : jit-inline-cache-miss ( -- )
+    "jit-inline-cache-miss" print
     jit-save-context
     arg1 RBX MOV
     arg2 vm-reg MOV
@@ -126,18 +144,21 @@ IN: bootstrap.assembler.x86
     jit-load-context
     jit-restore-context ;
 
-[ jit-load-return-address jit-inline-cache-miss ]
+[ "inline-cache-miss" print
+    jit-load-return-address jit-inline-cache-miss ]
 [ RAX CALL ]
 [ RAX JMP ]
 \ inline-cache-miss define-combinator-primitive
 
-[ jit-inline-cache-miss ]
+[ "inline-cache-miss-tail" print
+    jit-inline-cache-miss ]
 [ RAX CALL ]
 [ RAX JMP ]
 \ inline-cache-miss-tail define-combinator-primitive
 
 ! Overflowing fixnum arithmetic
 : jit-overflow ( insn func -- )
+    "jit-overflow" print
     ds-reg 8 SUB
     jit-save-context
     arg1 ds-reg [] MOV
@@ -151,6 +172,7 @@ IN: bootstrap.assembler.x86
 
 ! Contexts
 : jit-switch-context ( reg -- )
+    "jit-switch-context" print
     ! Push a bogus return address so the GC can track this frame back
     ! to the owner
     0 CALL
@@ -168,16 +190,19 @@ IN: bootstrap.assembler.x86
     ctx-reg jit-update-tib ;
 
 : jit-pop-context-and-param ( -- )
+    "jit-pop-context-and-param" print
     arg1 ds-reg [] MOV
     arg1 arg1 alien-offset [+] MOV
     arg2 ds-reg -8 [+] MOV
     ds-reg 16 SUB ;
 
 : jit-push-param ( -- )
+    "jit-push-param" print
     ds-reg 8 ADD
     ds-reg [] arg2 MOV ;
 
 : jit-set-context ( -- )
+    "jit-set-context" print
     jit-pop-context-and-param
     jit-save-context
     arg1 jit-switch-context
@@ -185,11 +210,13 @@ IN: bootstrap.assembler.x86
     jit-push-param ;
 
 : jit-pop-quot-and-param ( -- )
+    "jit-pop-quot-and-param" print
     arg1 ds-reg [] MOV
     arg2 ds-reg -8 [+] MOV
     ds-reg 16 SUB ;
 
 : jit-start-context ( -- )
+    "jit-start-context" print
     ! Create the new context in return-reg. Have to save context
     ! twice, first before calling new_context() which may GC,
     ! and again after popping the two parameters from the stack.
@@ -203,11 +230,13 @@ IN: bootstrap.assembler.x86
     jit-jump-quot ;
 
 : jit-delete-current-context ( -- )
+    "jit-delete-current-context" print
     vm-reg "delete_context" jit-call-1arg ;
 
 ! Resets the active context and instead the passed in quotation
 ! becomes the new code that it executes.
 : jit-start-context-and-delete ( -- )
+    "jit-start-context-and-delete" print
     ! Updates the context to match the values in the data and retain
     ! stack registers. reset_context can GC.
     jit-save-context
@@ -226,6 +255,7 @@ IN: bootstrap.assembler.x86
     jit-jump-quot ;
 
 [
+    "JIT-SAFEPOINT" print
     0 [RIP+] EAX MOV rc-relative rel-safepoint
 ] JIT-SAFEPOINT jit-define
 
@@ -242,6 +272,7 @@ IN: bootstrap.assembler.x86
 
     ! ## Entry points
     { c-to-factor [
+        "HEY! c-to-factor" print
         arg2 arg1 MOV
         vm-reg "begin_callback" jit-call-1arg
 
@@ -252,6 +283,7 @@ IN: bootstrap.assembler.x86
         vm-reg "end_callback" jit-call-1arg
     ] }
     { unwind-native-frames [
+        "unwind-native-frames" print
         ! unwind-native-frames is marked as "special" in
         ! vm/quotations.cpp so it does not have a standard prolog
         ! Unwind stack frames
@@ -273,9 +305,14 @@ IN: bootstrap.assembler.x86
     ] }
 
     ! ## Math
-    { fixnum+ [ [ ADD ] "overflow_fixnum_add" jit-overflow ] }
-    { fixnum- [ [ SUB ] "overflow_fixnum_subtract" jit-overflow ] }
+    { fixnum+ [ [ ADD ] 
+        "fixnum+" print
+        "overflow_fixnum_add" jit-overflow ] }
+    { fixnum- [ [ SUB ] 
+        "fixnum-" print
+        "overflow_fixnum_subtract" jit-overflow ] }
     { fixnum* [
+        "fixnum*" print
         ds-reg 8 SUB
         jit-save-context
         RCX ds-reg [] MOV
@@ -297,6 +334,7 @@ IN: bootstrap.assembler.x86
 
     ! ## Misc
     { fpu-state [
+        "fpu-state" print
         RSP 2 SUB
         RSP [] FNSTCW
         FNINIT
@@ -304,12 +342,14 @@ IN: bootstrap.assembler.x86
         RSP 2 ADD
     ] }
     { set-fpu-state [
+        "set-fpu-state" print
         RSP 2 SUB
         RSP [] arg1 16-bit-version-of MOV
         RSP [] FLDCW
         RSP 2 ADD
     ] }
     { set-callstack [
+        "set-callstack" print
         ! Load callstack object
         arg4 ds-reg [] MOV
         ds-reg bootstrap-cell SUB

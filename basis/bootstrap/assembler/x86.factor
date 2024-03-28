@@ -4,7 +4,7 @@ USING: bootstrap.image.private compiler.codegen.relocation
 compiler.constants compiler.units cpu.x86.assembler
 cpu.x86.assembler.operands kernel kernel.private layouts
 locals.backend math math.private namespaces sequences
-slots.private strings.private vocabs ;
+slots.private strings.private vocabs io ;
 IN: bootstrap.assembler.x86
 
 : temp0/32 ( -- reg )
@@ -16,6 +16,7 @@ big-endian off
 
 ! C to Factor entry point
 [
+    "CALLBACK-STUB" print
     ! Optimizing compiler's side of callback accesses
     ! arguments that are on the stack via the frame pointer.
     ! On x86-32 fastcall, and x86-64, some arguments are passed
@@ -82,6 +83,7 @@ big-endian off
 ] CALLBACK-STUB jit-define
 
 [
+    "JIT-PUSH-LITERAL" print
     ! load literal
     temp0 0 MOV f rc-absolute-cell rel-literal
     ! increment datastack pointer
@@ -91,6 +93,7 @@ big-endian off
 ] JIT-PUSH-LITERAL jit-define
 
 [
+    "JIT-WORD-CALL" print
     0 CALL f rc-relative rel-word-pic
 ] JIT-WORD-CALL jit-define
 
@@ -101,6 +104,7 @@ big-endian off
 ! It is important that the total is 192/64 and that it matches the
 ! constants in vm/cpu-x86.*.hpp
 : jit-signal-handler-prolog ( -- )
+    "jit-signal-handler-prolog" print
     ! Return address already on stack -> 8/4 bytes.
 
     ! Push all registers. 15 regs/120 bytes on 64bit, 7 regs/28 bytes
@@ -118,11 +122,13 @@ big-endian off
     jit-load-vm ;
 
 : jit-signal-handler-epilog ( -- )
+    "jit-signal-handler-epilog" print
     stack-reg stack-reg 7 bootstrap-cells [+] LEA
     POPF
     signal-handler-save-regs reverse [ POP ] each ;
 
 [
+    "JIT-IF" print
     ! load boolean
     temp0 ds-reg [] MOV
     ! pop boolean
@@ -136,12 +142,14 @@ big-endian off
 ] JIT-IF jit-define
 
 : jit->r ( -- )
+    "jit->r" print
     rs-reg bootstrap-cell ADD
     temp0 ds-reg [] MOV
     ds-reg bootstrap-cell SUB
     rs-reg [] temp0 MOV ;
 
 : jit-2>r ( -- )
+    "jit-2>r" print
     rs-reg 2 bootstrap-cells ADD
     temp0 ds-reg [] MOV
     temp1 ds-reg -1 bootstrap-cells [+] MOV
@@ -150,6 +158,7 @@ big-endian off
     rs-reg -1 bootstrap-cells [+] temp1 MOV ;
 
 : jit-3>r ( -- )
+    "jit-3>r" print
     rs-reg 3 bootstrap-cells ADD
     temp0 ds-reg [] MOV
     temp1 ds-reg -1 bootstrap-cells [+] MOV
@@ -160,12 +169,14 @@ big-endian off
     rs-reg -2 bootstrap-cells [+] temp2 MOV ;
 
 : jit-r> ( -- )
+    "jit-r>" print
     ds-reg bootstrap-cell ADD
     temp0 rs-reg [] MOV
     rs-reg bootstrap-cell SUB
     ds-reg [] temp0 MOV ;
 
 : jit-2r> ( -- )
+    "jit-2r>" print
     ds-reg 2 bootstrap-cells ADD
     temp0 rs-reg [] MOV
     temp1 rs-reg -1 bootstrap-cells [+] MOV
@@ -174,6 +185,7 @@ big-endian off
     ds-reg -1 bootstrap-cells [+] temp1 MOV ;
 
 : jit-3r> ( -- )
+    "jit-3r>" print
     ds-reg 3 bootstrap-cells ADD
     temp0 rs-reg [] MOV
     temp1 rs-reg -1 bootstrap-cells [+] MOV
@@ -184,24 +196,28 @@ big-endian off
     ds-reg -2 bootstrap-cells [+] temp2 MOV ;
 
 [
+    "JIT-DIP" print
     jit->r
     0 CALL f rc-relative rel-word
     jit-r>
 ] JIT-DIP jit-define
 
 [
+    "JIT-2DIP" print
     jit-2>r
     0 CALL f rc-relative rel-word
     jit-2r>
 ] JIT-2DIP jit-define
 
 [
+    "JIT-3DIP" print
     jit-3>r
     0 CALL f rc-relative rel-word
     jit-3r>
 ] JIT-3DIP jit-define
 
 [
+    "(execute)" print
     ! load from stack
     temp0 ds-reg [] MOV
     ! pop stack
@@ -212,20 +228,25 @@ big-endian off
 \ (execute) define-combinator-primitive
 
 [
+    "JIT-EXECUTE" print
     temp0 ds-reg [] MOV
     ds-reg bootstrap-cell SUB
     temp0 word-entry-point-offset [+] JMP
 ] JIT-EXECUTE jit-define
 
 [
+    "JIT-PROLOG" print
     stack-reg stack-frame-size bootstrap-cell - SUB
 ] JIT-PROLOG jit-define
 
 [
+    "JIT-EPILOG" print
     stack-reg stack-frame-size bootstrap-cell - ADD
 ] JIT-EPILOG jit-define
 
-[ 0 RET ] JIT-RETURN jit-define
+[ 
+    "JIT-RETURN" print
+    0 RET ] JIT-RETURN jit-define
 
 ! ! ! Polymorphic inline caches
 
@@ -233,12 +254,16 @@ big-endian off
 
 ! Load a value from a stack position
 [
+    "PIC-LOAD" print
     temp1 ds-reg 0x7f [+] MOV f rc-absolute-1 rel-untagged
 ] PIC-LOAD jit-define
 
-[ temp1/32 tag-mask get AND ] PIC-TAG jit-define
+[ 
+    "PIC-TAG" print
+    temp1/32 tag-mask get AND ] PIC-TAG jit-define
 
 [
+    "PIC-TUPLE" print
     temp0 temp1 MOV
     temp1/32 tag-mask get AND
     temp1/32 tuple type-number CMP
@@ -248,14 +273,18 @@ big-endian off
 ] PIC-TUPLE jit-define
 
 [
+    "PIC-CHECK-TAG" print
     temp1/32 0x7f CMP f rc-absolute-1 rel-untagged
 ] PIC-CHECK-TAG jit-define
 
-[ 0 JE f rc-relative rel-word ] PIC-HIT jit-define
+[ 
+    "PIC-HIT" print
+    0 JE f rc-relative rel-word ] PIC-HIT jit-define
 
 ! ! ! Megamorphic caches
 
 [
+    "MEGA-LOOKUP" print
     ! class = ...
     temp0 temp1 MOV
     temp1/32 tag-mask get AND
@@ -291,6 +320,7 @@ big-endian off
 
 ! Comparisons
 : jit-compare ( insn -- )
+    "jit-compare" print
     ! load t
     temp3 0 MOV t rc-absolute-cell rel-literal
     ! load f
@@ -308,6 +338,7 @@ big-endian off
 
 ! Math
 : jit-math ( insn -- )
+    "jit-math" print
     ! load second input
     temp0 ds-reg [] MOV
     ! pop stack
@@ -316,6 +347,7 @@ big-endian off
     [ ds-reg [] temp0 ] dip execute( dst src -- ) ;
 
 : jit-fixnum-/mod ( -- )
+    "jit-fixnum-/mod" print
     ! load second parameter
     temp1 ds-reg [] MOV
     ! load first parameter
@@ -332,19 +364,21 @@ big-endian off
     ! ## Fixnums
 
     ! ### Add
-    { fixnum+fast [ \ ADD jit-math ] }
+    { fixnum+fast [ "fixnum+fast" print \ ADD jit-math ] }
 
     ! ### Bit stuff
-    { fixnum-bitand [ \ AND jit-math ] }
+    { fixnum-bitand [ "fixnum-bitand" print \ AND jit-math ] }
     { fixnum-bitnot [
+        "fixnum-bitnot" print
         ! complement
         ds-reg [] NOT
         ! clear tag bits
         ds-reg [] tag-mask get XOR
     ] }
-    { fixnum-bitor [ \ OR jit-math ] }
-    { fixnum-bitxor [ \ XOR jit-math ] }
+    { fixnum-bitor [ "fixnum-bitor" print \ OR jit-math ] }
+    { fixnum-bitxor [ "fixnum-bitxor" print \ XOR jit-math ] }
     { fixnum-shift-fast [
+        "fixnum-shift-fast" print
         ! load shift count
         shift-arg ds-reg [] MOV
         ! untag shift count
@@ -370,6 +404,7 @@ big-endian off
 
     ! ### Comparisons
     { both-fixnums? [
+        "both-fixnums?" print 
         temp0 ds-reg [] MOV
         ds-reg bootstrap-cell SUB
         temp0 ds-reg [] OR
@@ -379,14 +414,15 @@ big-endian off
         temp0 temp1 CMOVE
         ds-reg [] temp0 MOV
     ] }
-    { eq? [ \ CMOVE jit-compare ] }
-    { fixnum> [ \ CMOVG jit-compare ] }
-    { fixnum>= [ \ CMOVGE jit-compare ] }
-    { fixnum< [ \ CMOVL jit-compare ] }
-    { fixnum<= [ \ CMOVLE jit-compare ] }
+    { eq? [ "eq?" print \ CMOVE jit-compare ] }
+    { fixnum> [ "fixnum>" print \ CMOVG jit-compare ] }
+    { fixnum>= [ "fixnum>=" print \ CMOVGE jit-compare ] }
+    { fixnum< [ "fixnum<" print \ CMOVL jit-compare ] }
+    { fixnum<= [ "fixnum<=" print \ CMOVLE jit-compare ] }
 
     ! ### Div/mod
     { fixnum-mod [
+        "fixnum-mod" print 
         jit-fixnum-/mod
         ! adjust stack pointer
         ds-reg bootstrap-cell SUB
@@ -394,6 +430,7 @@ big-endian off
         ds-reg [] mod-arg MOV
     ] }
     { fixnum/i-fast [
+        "fixnum/i-fast" print 
         jit-fixnum-/mod
         ! adjust stack pointer
         ds-reg bootstrap-cell SUB
@@ -403,6 +440,7 @@ big-endian off
         ds-reg [] div-arg MOV
     ] }
     { fixnum/mod-fast [
+        "fixnum/mod-fast" print 
         jit-fixnum-/mod
         ! tag it
         div-arg tag-bits get SHL
@@ -413,6 +451,7 @@ big-endian off
 
     ! ### Mul
     { fixnum*fast [
+        "fixnum*fast" print 
         ! load second input
         temp0 ds-reg [] MOV
         ! pop stack
@@ -428,10 +467,11 @@ big-endian off
     ] }
 
     ! ### Sub
-    { fixnum-fast [ \ SUB jit-math ] }
+    { fixnum-fast [ "fixnum-fast" print \ SUB jit-math ] }
 
     ! ## Locals
     { drop-locals [
+        "drop-locals" print 
         ! load local count
         temp0 ds-reg [] MOV
         ! adjust stack pointer
@@ -442,6 +482,7 @@ big-endian off
         rs-reg temp0 SUB
     ] }
     { get-local [
+        "get-local" print 
         ! load local number
         temp0 ds-reg [] MOV
         ! turn local number into offset
@@ -451,10 +492,11 @@ big-endian off
         ! push to stack
         ds-reg [] temp0 MOV
     ] }
-    { load-local [ jit->r ] }
+    { load-local [ "load-local" print jit->r ] }
 
     ! ## Objects
     { slot [
+        "slot" print 
         ! load slot number
         temp0 ds-reg [] MOV
         ! adjust stack pointer
@@ -472,6 +514,7 @@ big-endian off
         ds-reg [] temp0 MOV
     ] }
     { string-nth-fast [
+        "string-nth-fast" print 
         ! load string index from stack
         temp0 ds-reg bootstrap-cell neg [+] MOV
         temp0 tag-bits get SHR
@@ -486,6 +529,7 @@ big-endian off
         ds-reg [] temp0 MOV
     ] }
     { tag [
+        "tag" print 
         ! load from stack
         temp0 ds-reg [] MOV
         ! compute tag
@@ -499,18 +543,20 @@ big-endian off
     ! ## Shufflers
 
     ! ### Drops
-    { drop [ ds-reg bootstrap-cell SUB ] }
-    { 2drop [ ds-reg 2 bootstrap-cells SUB ] }
-    { 3drop [ ds-reg 3 bootstrap-cells SUB ] }
-    { 4drop [ ds-reg 4 bootstrap-cells SUB ] }
+    { drop [ "drop" print ds-reg bootstrap-cell SUB ] }
+    { 2drop [ "2drop" print ds-reg 2 bootstrap-cells SUB ] }
+    { 3drop [ "3drop" print ds-reg 3 bootstrap-cells SUB ] }
+    { 4drop [ "4drop" print ds-reg 4 bootstrap-cells SUB ] }
 
     ! ### Dups
     { dup [
+        "dup" print 
         temp0 ds-reg [] MOV
         ds-reg bootstrap-cell ADD
         ds-reg [] temp0 MOV
     ] }
     { 2dup [
+        "2dup" print 
         temp0 ds-reg [] MOV
         temp1 ds-reg bootstrap-cell neg [+] MOV
         ds-reg 2 bootstrap-cells ADD
@@ -518,6 +564,7 @@ big-endian off
         ds-reg bootstrap-cell neg [+] temp1 MOV
     ] }
     { 3dup [
+        "3dup" print 
         temp0 ds-reg [] MOV
         temp1 ds-reg -1 bootstrap-cells [+] MOV
         temp3 ds-reg -2 bootstrap-cells [+] MOV
@@ -527,6 +574,7 @@ big-endian off
         ds-reg -2 bootstrap-cells [+] temp3 MOV
     ] }
     { 4dup [
+        "4dup" print 
         temp0 ds-reg [] MOV
         temp1 ds-reg -1 bootstrap-cells [+] MOV
         temp2 ds-reg -2 bootstrap-cells [+] MOV
@@ -538,6 +586,7 @@ big-endian off
         ds-reg -3 bootstrap-cells [+] temp3 MOV
     ] }
     { dupd [
+        "dupd" print 
         temp0 ds-reg [] MOV
         temp1 ds-reg -1 bootstrap-cells [+] MOV
         ds-reg [] temp1 MOV
@@ -547,11 +596,13 @@ big-endian off
 
     ! ### Misc shufflers
     { over [
+        "over" print 
         temp0 ds-reg -1 bootstrap-cells [+] MOV
         ds-reg bootstrap-cell ADD
         ds-reg [] temp0 MOV
     ] }
     { pick [
+        "pick" print 
         temp0 ds-reg -2 bootstrap-cells [+] MOV
         ds-reg bootstrap-cell ADD
         ds-reg [] temp0 MOV
@@ -559,11 +610,13 @@ big-endian off
 
     ! ### Nips
     { nip [
+        "nip" print 
         temp0 ds-reg [] MOV
         ds-reg bootstrap-cell SUB
         ds-reg [] temp0 MOV
     ] }
     { 2nip [
+        "2nip" print 
         temp0 ds-reg [] MOV
         ds-reg 2 bootstrap-cells SUB
         ds-reg [] temp0 MOV
@@ -571,6 +624,7 @@ big-endian off
 
     ! ### Swaps
     { -rot [
+        "-rot" print 
         temp0 ds-reg [] MOV
         temp1 ds-reg -1 bootstrap-cells [+] MOV
         temp3 ds-reg -2 bootstrap-cells [+] MOV
@@ -579,6 +633,7 @@ big-endian off
         ds-reg [] temp1 MOV
     ] }
     { rot [
+        "rot" print 
         temp0 ds-reg [] MOV
         temp1 ds-reg -1 bootstrap-cells [+] MOV
         temp3 ds-reg -2 bootstrap-cells [+] MOV
@@ -587,12 +642,14 @@ big-endian off
         ds-reg [] temp3 MOV
     ] }
     { swap [
+        "swap" print 
         temp0 ds-reg [] MOV
         temp1 ds-reg bootstrap-cell neg [+] MOV
         ds-reg bootstrap-cell neg [+] temp0 MOV
         ds-reg [] temp1 MOV
     ] }
     { swapd [
+        "swapd" print 
         temp0 ds-reg -1 bootstrap-cells [+] MOV
         temp1 ds-reg -2 bootstrap-cells [+] MOV
         ds-reg -2 bootstrap-cells [+] temp0 MOV
@@ -601,6 +658,7 @@ big-endian off
 
     ! ## Signal handling
     { leaf-signal-handler [
+        "leaf-signal-handler" print 
         jit-signal-handler-prolog
         jit-save-context
         temp0 vm-reg vm-signal-handler-addr-offset [+] MOV
@@ -610,6 +668,7 @@ big-endian off
         leaf-stack-frame-size bootstrap-cell - RET
     ] }
     { signal-handler [
+        "signal-handler" print 
         jit-signal-handler-prolog
         jit-save-context
         temp0 vm-reg vm-signal-handler-addr-offset [+] MOV
