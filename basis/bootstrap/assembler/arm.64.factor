@@ -1082,7 +1082,7 @@ big-endian off
         ! ds-reg [] RAX MOV
         1 push-down0
         ! [ JNO ]
-        [ VC B.cond ] [
+        [ VC B.cond ] [ ! once we get here the next instruction breaks
             ! arg1 RCX MOV
             temp1 arg1 MOVr
             ! arg1 tag-bits get SAR
