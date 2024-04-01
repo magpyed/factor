@@ -1063,8 +1063,10 @@ big-endian off
     ] }
 
     ! ## Math
-    { fixnum+ [ [ ADDr ] "overflow_fixnum_add" jit-overflow ] }
-    { fixnum- [ [ SUBr ] "overflow_fixnum_subtract" jit-overflow ] }
+    { fixnum+ [ 
+        [ ADDr ] "overflow_fixnum_add" jit-overflow ] }
+    { fixnum- [       
+        [ SUBr ] "overflow_fixnum_subtract" jit-overflow ] }
     { fixnum* [
         ! ds-reg 8 SUB
         jit-save-context
@@ -1182,7 +1184,9 @@ big-endian off
     ! ## Fixnums
 
     ! ### Add
-    { fixnum+fast [ \ ADDr jit-math ] }
+    { fixnum+fast [ 
+        ! 0x220 BRK
+        \ ADDr jit-math ] }
 
     ! ### Bit manipulation
     { fixnum-bitand [ \ ANDr jit-math ] }
@@ -1250,7 +1254,9 @@ big-endian off
         1 push-down0
     ] }
     { eq? [ EQ jit-compare ] }
-    { fixnum> [ GT jit-compare ] }
+    { fixnum> [ 
+        0x222 BRK
+        GT jit-compare ] }
     { fixnum>= [ GE jit-compare ] }
     { fixnum< [ LT jit-compare ] }
     { fixnum<= [ LE jit-compare ] }
@@ -1307,7 +1313,9 @@ big-endian off
     ] }
 
     ! ### Sub
-    { fixnum-fast [ \ SUBr jit-math ] }
+    { fixnum-fast [ 
+        \ SUBr jit-math 
+        ] }
 
     ! ## Locals
     { drop-locals [
