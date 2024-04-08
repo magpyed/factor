@@ -965,7 +965,7 @@ big-endian off
     ! ds-reg [] arg3 MOV
     push-down-arg3
     ! [ JNO ]
-    [ VC B.cond ] [
+    [ 8 fixnum+fast VC B.cond ] [
         ! arg3 vm-reg MOV
         vm-reg arg3 MOVr
         jit-call
@@ -1074,35 +1074,38 @@ big-endian off
     ! ## Math
     { fixnum+ [ 
         [ ADDr ] "overflow_fixnum_add" jit-overflow ] }
-    { fixnum- [       
+    { fixnum- [ 
         [ SUBr ] "overflow_fixnum_subtract" jit-overflow ] }
     { fixnum* [
-        ! ds-reg 8 SUB
-        jit-save-context
-        ! RCX ds-reg [] MOV
-        ! RBX ds-reg 8 [+] MOV
-        load1/0
-        ! RBX tag-bits get SAR
-        temp0 untag
-        ! RAX RCX MOV
-        ! RBX IMUL
-        ! RAX * RBX = RDX:RAX
-        temp1 temp0 temp0 MUL
-        ! ds-reg [] RAX MOV
-        1 push-down0
-        ! [ JNO ]
-        [ VC B.cond ] [ ! once we get here the next instruction breaks
-            ! arg1 RCX MOV
-            temp1 arg1 MOVr
-            ! arg1 tag-bits get SAR
-            temp1 untag
-            ! arg2 RBX MOV
-            temp0 arg2 MOVr
-            ! arg3 vm-reg MOV
-            vm-reg arg3 MOVr
-            "overflow_fixnum_multiply" jit-call
-        ] jit-conditional
-    ] }
+        [ MUL ] "overflow_fixnum_multiply" jit-overflow ] }
+    ! { fixnum* [
+    !     0x210 BRK 
+    !     ! ds-reg 8 SUB
+    !     jit-save-context
+    !     ! RCX ds-reg [] MOV
+    !     ! RBX ds-reg 8 [+] MOV
+    !     load1/0
+    !     ! RBX tag-bits get SAR
+    !     temp0 untag
+    !     ! RAX RCX MOV
+    !     ! RBX IMUL
+    !     ! RAX * RBX = RDX:RAX
+    !     temp1 temp0 temp0 MUL
+    !     ! ds-reg [] RAX MOV
+    !     1 push-down0
+    !     ! [ JNO ]
+    !     [ 8 fixnum+fast VC B.cond ] [ 
+    !         ! arg1 RCX MOV
+    !         temp1 arg1 MOVr
+    !         ! arg1 tag-bits get SAR
+    !         temp1 untag
+    !         ! arg2 RBX MOV
+    !         temp0 arg2 MOVr
+    !         ! arg3 vm-reg MOV
+    !         vm-reg arg3 MOVr
+    !         "overflow_fixnum_multiply" jit-call
+    !     ] jit-conditional
+    ! ] }
 
     ! ## Misc
     { fpu-state [
