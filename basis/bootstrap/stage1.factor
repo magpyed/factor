@@ -58,6 +58,6 @@ load-help? off
 OBJ-STARTUP-QUOT
 bootstrap.image.private:special-objects get set-at
 
-[ 24 42 fixnum> ]
+[ -5 3 fixnum/mod-fast ]
 OBJ-STARTUP-QUOT
 bootstrap.image.private:special-objects get set-at

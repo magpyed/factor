@@ -84,6 +84,7 @@ big-endian off
 : store1 ( -- ) 0 ds-reg temp1 STRuoff ;
 : store0/1 ( -- ) -8 ds-reg temp1 temp0 STPsoff ;
 : store0/2 ( -- ) -8 ds-reg temp2 temp0 STPsoff ;
+: store2/0 ( -- ) -8 ds-reg temp0 temp2 STPsoff ;
 : store1/0 ( -- ) -8 ds-reg temp0 temp1 STPsoff ;
 : store1/2 ( -- ) -16 ds-reg temp2 temp1 STPsoff ;
 
@@ -1268,7 +1269,6 @@ big-endian off
     ] }
     { eq? [ EQ jit-compare ] }
     { fixnum> [ 
-        0x222 BRK
         GT jit-compare ] }
     { fixnum>= [ GE jit-compare ] }
     { fixnum< [ LT jit-compare ] }
@@ -1295,6 +1295,7 @@ big-endian off
         1 push-down0
     ] }
     { fixnum/mod-fast [
+        0x222 BRK
         jit-fixnum-/mod
         ! ! tag it
         ! div-arg tag-bits get SHL
@@ -1302,7 +1303,7 @@ big-endian off
         ! ! push to stack
         ! ds-reg [] mod-arg MOV
         ! ds-reg bootstrap-cell neg [+] div-arg MOV
-        store0/2
+        store2/0
     ] }
 
     ! ### Mul
